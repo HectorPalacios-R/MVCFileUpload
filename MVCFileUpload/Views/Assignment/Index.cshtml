@@ -1,43 +1,160 @@
 ﻿@model List<MVCFileUpload.Models.Assignment>
-<h1>Ypload to Folder </h1>
-@using (Html.BeginForm("Upload", "Assignment", FormMethod.Post,
-			new { enctype = "multipart/form-data" })) //allows file uploads
-{
-	<label for="uploaderName"> Your Name: </label>
-	<input type="text" name="uploaderName" required />
 
-	<br />
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Upload to Folder</title>
 
-	<label for="file"> Select File </label>
-	<input type="file" name="file" required />
+</head>
+<body>
 
-	<br />
+    <h1>Upload to Folder</h1>
 
-	<input type="submit" value="Upload" />
-}
+    @using (Html.BeginForm("Upload", "Assignment", FormMethod.Post, new { enctype = "multipart/form-data" }))
+    {
+        <label for="uploaderName"> Your Name: </label>
+        <input type="text" name="uploaderName" required />
 
-<h2> Uploaded Assignment </h2>
+        <label for="file"> Select File </label>
+        <input type="file" name="file" required />
 
-<table>
-	<tr>
-		<th> ID </th>
-		<th> File Name </th>
-		<th> Uploader Name </th>
-		<th> Upload Date </th>
-		<th> Actions </th>
-	</tr>
-	@foreach (var assignmnt in Model) //loop through each item in the list
-	{
-		<tr>
-			<td> @assignmnt.Id </td>
-			<td> @assignmnt.FileName </td>
-			<td> @assignmnt.UploaderName </td>
-			<td> @assignmnt.UploadDate </td>
-			<td>
-				<a href="@Url.Action("OpenFile", "Assignment",
-					new { fileName = assignmnt.FileName})"
-				   target="_blank"> Open </a>
-			</td>
-		</tr>
-	}
-</table>
+        <input type="submit" value="Upload" />
+    }
+
+    <h2>Uploaded Assignments</h2>
+
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>File Name</th>
+            <th>Uploader Name</th>
+            <th>Upload Date</th>
+            <th>Actions</th>
+        </tr>
+        @foreach (var assignmnt in Model)
+        {
+            <tr>
+                <td>@assignmnt.Id</td>
+                <td>@assignmnt.FileName</td>
+                <td>@assignmnt.UploaderName</td>
+                <td>@assignmnt.UploadDate</td>
+                <td>
+                    <a href="@Url.Action("OpenFile", "Assignment", new { fileName = assignmnt.FileName })" target="_blank" class="btn-link">
+                        Open
+                    </a>
+                </td>
+            </tr>
+        }
+    </table>
+
+</body>
+</html>
+<style>
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f5f6fa;
+        margin: 20px;
+        color: #333;
+    }
+
+    h1, h2 {
+        text-align: center;
+        color: #2c3e50;
+        margin-bottom: 20px;
+    }
+
+    form {
+        max-width: 500px;
+        margin: 0 auto 30px auto;
+        padding: 20px;
+        background: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    label {
+        font-weight: 600;
+        display: block;
+        margin-top: 10px;
+        margin-bottom: 5px;
+    }
+
+    input[type="text"], input[type="file"] {
+        width: 100%;
+        padding: 10px 12px;
+        margin-bottom: 15px;
+        border: 1px solid #ced4da;
+        border-radius: 5px;
+        transition: border-color 0.3s ease;
+    }
+
+        input[type="text"]:focus, input[type="file"]:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+    input[type="submit"] {
+        background-color: #007bff;
+        color: #ffffff;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+    table {
+        width: 95%;
+        margin: 0 auto;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: #ffffff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    }
+
+        table th, table td {
+            padding: 14px 18px;
+            text-align: center;
+            font-size: 15px;
+        }
+
+        table th {
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: #ffffff;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        table tr:nth-child(even) td {
+            background-color: #f8f9fc;
+        }
+
+        table tr:hover td {
+            background-color: #eaf3ff;
+            transition: background-color 0.3s ease;
+        }
+
+    .btn-link {
+        display: inline-block;
+        background-color: #28a745;
+        color: #fff !important;
+        padding: 6px 12px;
+        border-radius: 5px;
+        font-weight: bold;
+        text-decoration: none;
+        transition: background-color 0.3s ease;
+    }
+
+        .btn-link:hover {
+            background-color: #218838;
+        }
+</style>

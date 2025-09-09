@@ -1,59 +1,114 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using MVCFileUpload.Models;
+using System.Security.Cryptography;
 
 namespace MVCFileUpload.Controllers
 {
     public class AssignmentController : Controller
     {
-        //to allow access into the folder and the file we are going to create
-        private readonly IWebHostEnvironment _webHostEnvironment;
-        //used to access wwwroot and files
+        private readonly IWebHostEnvironment _env;
 
-        public AssignmentController(IWebHostEnvironment webHostEnvironment)
+        private const string Base64Key = "iKwxciCzDX6mWEll+c2Ko2xFUaT2TlwbmMfWLY+kX/4=";
+
+        private static readonly List<Assignment> assignments = new(); 
+        public AssignmentController(IWebHostEnvironment env)
         {
-            _webHostEnvironment = webHostEnvironment;
-            //tells the system to look at the wwwroot 
+            _env = env;
         }
 
-        private static List<Assignment> assignments = new List<Assignment>(); //stoe list yo memory
         public IActionResult Index()
         {
-            return View(assignments); //returns the list
+            return View(assignments);
         }
 
         [HttpPost]
-        public IActionResult Upload(IFormFile file, string UploaderName)
+        public async Task<IActionResult> Upload(IFormFile file, string uploaderName)
         {
-            if (file != null && file.Length > 0)
+            if (file == null || file.Length == 0)
+                return RedirectToAction(nameof(Index));
+
+            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
+            Directory.CreateDirectory(uploadsFolder);
+
+            var originalName = Path.GetFileName(file.FileName);
+            var encryptedPath = Path.Combine(uploadsFolder, originalName + ".enc");
+
+            // Read file into memory
+            byte[] plainBytes;
+            using (var ms = new MemoryStream())
             {
-                //get original file name
-                var fileName = Path.GetFileName(file.FileName);
-
-                //create the path to save the file under wwwroot/uploads
-                var path = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", fileName);
-
-                using (var stream = new FileStream(path, FileMode.Create))
-                {
-                    file.CopyTo(stream); //copy the uploaded file into the stream
-                }
-                assignments.Add(new Assignment // add assignment details to th list 
-                {
-                    Id = assignments.Count + 1,
-                    FileName = fileName,
-                    UploaderName = UploaderName,
-                    UploadDate = DateTime.Now
-                });
+                await file.CopyToAsync(ms);
+                plainBytes = ms.ToArray();
             }
-            return RedirectToAction("Index"); //show the updated list
+
+            // Encrypt and save: format = [IV(16)][ciphertext(...)]
+            var key = Convert.FromBase64String(Base64Key);
+            var iv = RandomNumberGenerator.GetBytes(16);
+
+            using (var aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = iv;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using var encryptor = aes.CreateEncryptor();
+                var cipherBytes = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
+
+                await System.IO.File.WriteAllBytesAsync(encryptedPath, iv.Concat(cipherBytes).ToArray());
+            }
+
+            assignments.Add(new Assignment
+            {
+                Id = assignments.Count + 1,
+                FileName = originalName,     // keep the friendly name
+                UploaderName = uploaderName,
+                UploadDate = DateTime.Now
+            });
+
+            return RedirectToAction(nameof(Index));
         }
 
-        public ActionResult OpenFile(string fileName)
+        public async Task<IActionResult> OpenFile(string fileName)
         {
-            var path = Path.Combine(_webHostEnvironment.WebRootPath, "uploads", fileName);
-            var fileBytes = System.IO.File.ReadAllBytes(path);
+            if (string.IsNullOrWhiteSpace(fileName))
+                return NotFound();
 
-            //return the file to browsers as download
-            return File(fileBytes, "application/octet-stream", fileName);
+            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
+            var encryptedPath = Path.Combine(uploadsFolder, fileName + ".enc");
+            if (!System.IO.File.Exists(encryptedPath))
+                return NotFound();
+
+            // Read [IV|cipher]
+            var data = await System.IO.File.ReadAllBytesAsync(encryptedPath);
+            if (data.Length < 16) return BadRequest("File is corrupted.");
+
+            var iv = new byte[16];
+            Buffer.BlockCopy(data, 0, iv, 0, 16);
+            var cipher = new byte[data.Length - 16];
+            Buffer.BlockCopy(data, 16, cipher, 0, cipher.Length);
+
+            // Decrypt
+            var key = Convert.FromBase64String(Base64Key);
+            byte[] plain;
+            using (var aes = Aes.Create())
+            {
+                aes.Key = key;
+                aes.IV = iv;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using var decryptor = aes.CreateDecryptor();
+                plain = decryptor.TransformFinalBlock(cipher, 0, cipher.Length);
+            }
+
+            // Guess content type from original extension
+            var provider = new FileExtensionContentTypeProvider();
+            if (!provider.TryGetContentType(fileName, out var contentType))
+                contentType = "application/octet-stream";
+
+            return File(plain, contentType, fileName);
         }
     }
 }
